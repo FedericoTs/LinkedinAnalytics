@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import * as React from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
@@ -8,15 +8,17 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, fullName: string) => Promise<void>;
   signOut: () => Promise<void>;
+  signInWithLinkedIn: () => Promise<void>;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
+// Define as a named function declaration instead of an arrow function
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = React.useState<User | null>(null);
+  const [loading, setLoading] = React.useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -34,41 +36,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+  // Convert to regular functions returning promises
+  function signUp(email: string, password: string, fullName: string) {
+    return supabase.auth
+      .signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
         },
-      },
+      })
+      .then(({ error }) => {
+        if (error) throw error;
+      });
+  }
+
+  function signIn(email: string, password: string) {
+    return supabase.auth
+      .signInWithPassword({
+        email,
+        password,
+      })
+      .then(({ error }) => {
+        if (error) throw error;
+      });
+  }
+
+  async function signInWithLinkedIn() {
+    // Use Supabase's official OAuth method
+    const redirectTo = `${window.location.origin}/dashboard`;
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'linkedin',
+        options: { redirectTo },
+      });
+      if (error) throw error;
+    } catch (error) {
+      console.error("LinkedIn OAuth error:", error);
+      throw error;
+    }
+  }
+
+  function signOut() {
+    return supabase.auth.signOut().then(({ error }) => {
+      if (error) throw error;
     });
-    if (error) throw error;
+  }
+
+  // Create the context value object
+  const value = {
+    user,
+    loading,
+    signIn,
+    signUp,
+    signOut,
+    signInWithLinkedIn,
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) throw error;
-  };
-
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Define as a named function declaration
 export function useAuth() {
-  const context = useContext(AuthContext);
+  const context = React.useContext(AuthContext);
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }

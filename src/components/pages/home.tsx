@@ -30,6 +30,7 @@ import {
   UserPlus,
   TrendingUp,
   Github,
+  Linkedin,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../../supabase/auth";
@@ -81,7 +82,7 @@ interface Feature {
 }
 
 export default function LandingPage() {
-  const { user, signOut } = useAuth();
+  const { user, signOut, signInWithLinkedIn } = useAuth();
   const { toast } = useToast();
 
   const [plans, setPlans] = useState<Plan[]>([]);
@@ -364,6 +365,26 @@ export default function LandingPage() {
                     Get Started
                   </Button>
                 </Link>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+                  onClick={() => {
+                    try {
+                      signInWithLinkedIn();
+                    } catch (error) {
+                      console.error("LinkedIn sign-in error:", error);
+                      toast({
+                        title: "LinkedIn Sign-in Failed",
+                        description:
+                          "There was an error signing in with LinkedIn. Please try again or use email.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  <Linkedin className="h-4 w-4" />
+                  LinkedIn
+                </Button>
               </>
             )}
           </nav>
