@@ -66,11 +66,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signInWithLinkedIn() {
     // Use Supabase's official OAuth method
-    const redirectTo = `${window.location.origin}/dashboard`;
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'linkedin',
-        options: { redirectTo },
+        // options: { redirectTo: `${window.location.origin}/dashboard` },
       });
       if (error) throw error;
     } catch (error) {
