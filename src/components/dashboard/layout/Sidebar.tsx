@@ -2,6 +2,7 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { useNavigate } from "react-router-dom";
 import {
   Home,
   LayoutDashboard,
@@ -30,7 +31,6 @@ const defaultNavItems: NavItem[] = [
     icon: <LayoutDashboard size={18} />,
     label: "Dashboard",
     href: "/dashboard",
-    isActive: true,
   },
   {
     icon: <FileText size={18} />,
@@ -52,13 +52,28 @@ const defaultBottomItems: NavItem[] = [
 const Sidebar = ({
   items = defaultNavItems,
   activeItem = "Dashboard",
-  onItemClick = (label: string) => {
-    const item = defaultNavItems.find((item) => item.label === label);
-    if (item?.href) {
-      window.location.href = item.href;
-    }
-  },
+  onItemClick,
 }: SidebarProps) => {
+  const navigate = useNavigate();
+
+  const handleItemClick = (label: string) => {
+    if (onItemClick) {
+      onItemClick(label);
+      return;
+    }
+
+    const item =
+      items.find((item) => item.label === label) ||
+      defaultNavItems.find((item) => item.label === label);
+
+    if (item?.href) {
+      console.log(`Navigating to: ${item.href} for label: ${label}`);
+      // Use React Router navigation to ensure proper client-side routing
+      navigate(item.href);
+    } else {
+      console.log(`No href found for label: ${label}`);
+    }
+  };
   return (
     <div className="w-[240px] h-full border-r border-gray-200 bg-white flex flex-col">
       <div className="p-4">
@@ -73,7 +88,7 @@ const Sidebar = ({
               key={item.label}
               variant={item.label === activeItem ? "secondary" : "ghost"}
               className="w-full justify-start gap-2 text-sm h-10"
-              onClick={() => onItemClick(item.label)}
+              onClick={() => handleItemClick(item.label)}
             >
               {item.icon}
               {item.label}
@@ -88,7 +103,7 @@ const Sidebar = ({
             key={item.label}
             variant="ghost"
             className="w-full justify-start gap-2 text-sm h-10 mb-1"
-            onClick={() => onItemClick(item.label)}
+            onClick={() => handleItemClick(item.label)}
           >
             {item.icon}
             {item.label}

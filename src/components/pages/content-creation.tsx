@@ -3,6 +3,7 @@ import { useAuth } from "../../../supabase/auth";
 import Sidebar from "../dashboard/layout/Sidebar";
 import TopNavigation from "../dashboard/layout/TopNavigation";
 import ContentCreationHub from "../dashboard/ContentCreationHub";
+import { Toaster } from "@/components/ui/toaster";
 
 export default function ContentCreation() {
   const { user } = useAuth();
@@ -29,6 +30,7 @@ export default function ContentCreation() {
             </div>
           </div>
         </main>
+        <Toaster />
       </div>
     </div>
   );
