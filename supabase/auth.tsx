@@ -1,4 +1,4 @@
-import * as React from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 
@@ -11,14 +11,14 @@ type AuthContextType = {
   signInWithLinkedIn: () => Promise<void>;
 };
 
-const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Define as a named function declaration instead of an arrow function
+// Use named function component for consistent exports (required by Fast Refresh)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  React.useEffect(() => {
+  useEffect(() => {
     // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -26,63 +26,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for changes on auth state (signed in, signed out, etc.)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Convert to regular functions returning promises
-  function signUp(email: string, password: string, fullName: string) {
-    return supabase.auth
-      .signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
+  const signUp = async (email: string, password: string, fullName: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
         },
-      })
-      .then(({ error }) => {
-        if (error) throw error;
-      });
-  }
+      },
+    });
+    if (error) throw error;
+  };
 
-  function signIn(email: string, password: string) {
-    return supabase.auth
-      .signInWithPassword({
-        email,
-        password,
-      })
-      .then(({ error }) => {
-        if (error) throw error;
-      });
-  }
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) throw error;
+  };
 
-  async function signInWithLinkedIn() {
-    // Use Supabase's official OAuth method
+  const signInWithLinkedIn = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'linkedin',
-        // options: { redirectTo: `${window.location.origin}/dashboard` },
+        provider: 'linkedin_oidc',
+        options: { redirectTo: `${window.location.origin}/dashboard` },
       });
       if (error) throw error;
     } catch (error) {
       console.error("LinkedIn OAuth error:", error);
       throw error;
     }
-  }
+  };
 
-  function signOut() {
-    return supabase.auth.signOut().then(({ error }) => {
-      if (error) throw error;
-    });
-  }
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
 
   // Create the context value object
   const value = {
@@ -97,9 +90,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// Define as a named function declaration
+// Named function for the hook (required by Fast Refresh)
 export function useAuth() {
-  const context = React.useContext(AuthContext);
+  const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error("useAuth must be used within an AuthProvider");
   }

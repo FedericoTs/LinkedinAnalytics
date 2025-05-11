@@ -1,0 +1,9 @@
+import LinkedInAuthHelper from "@/components/auth/LinkedInAuthHelper";
+
+export default function LinkedInAuthHelperStoryboard() {
+  return (
+    <div className="bg-white p-6">
+      <LinkedInAuthHelper />
+    </div>
+  );
+}
