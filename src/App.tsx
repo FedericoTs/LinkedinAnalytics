@@ -5,6 +5,8 @@ import LoginForm from "./components/auth/LoginForm";
 import SignUpForm from "./components/auth/SignUpForm";
 import AuthCallback from "./components/auth/AuthCallback";
 import Dashboard from "./components/pages/dashboard";
+import ContentCreation from "./components/pages/content-creation";
+import NetworkAnalysis from "./components/pages/network-analysis";
 import Success from "./components/pages/success";
 import Home from "./components/pages/home";
 import { useAuth } from "../supabase/auth";
@@ -44,6 +46,22 @@ function AppRoutes() {
           element={
             <PrivateRoute>
               <Dashboard />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/content-creation"
+          element={
+            <PrivateRoute>
+              <ContentCreation />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/network-analysis"
+          element={
+            <PrivateRoute>
+              <NetworkAnalysis />
             </PrivateRoute>
           }
         />

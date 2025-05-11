@@ -5,11 +5,10 @@ import { Separator } from "@/components/ui/separator";
 import {
   Home,
   LayoutDashboard,
-  Calendar,
-  Users,
   Settings,
   HelpCircle,
-  FolderKanban,
+  FileText,
+  Network,
 } from "lucide-react";
 
 interface NavItem {
@@ -26,11 +25,23 @@ interface SidebarProps {
 }
 
 const defaultNavItems: NavItem[] = [
-  { icon: <Home size={18} />, label: "Home" },
-  { icon: <LayoutDashboard size={18} />, label: "Dashboard", isActive: true },
-  { icon: <FolderKanban size={18} />, label: "Projects" },
-  { icon: <Calendar size={18} />, label: "Calendar" },
-  { icon: <Users size={18} />, label: "Team" },
+  { icon: <Home size={18} />, label: "Home", href: "/" },
+  {
+    icon: <LayoutDashboard size={18} />,
+    label: "Dashboard",
+    href: "/dashboard",
+    isActive: true,
+  },
+  {
+    icon: <FileText size={18} />,
+    label: "Content Creation",
+    href: "/content-creation",
+  },
+  {
+    icon: <Network size={18} />,
+    label: "Network Analysis",
+    href: "/network-analysis",
+  },
 ];
 
 const defaultBottomItems: NavItem[] = [
@@ -41,15 +52,18 @@ const defaultBottomItems: NavItem[] = [
 const Sidebar = ({
   items = defaultNavItems,
   activeItem = "Dashboard",
-  onItemClick = () => {},
+  onItemClick = (label: string) => {
+    const item = defaultNavItems.find((item) => item.label === label);
+    if (item?.href) {
+      window.location.href = item.href;
+    }
+  },
 }: SidebarProps) => {
   return (
     <div className="w-[240px] h-full border-r border-gray-200 bg-white flex flex-col">
       <div className="p-4">
         <h2 className="text-lg font-semibold mb-1">Projects</h2>
-        <p className="text-sm text-gray-500">
-          Manage your projects and tasks
-        </p>
+        <p className="text-sm text-gray-500">Manage your projects and tasks</p>
       </div>
 
       <ScrollArea className="flex-1 px-3">
@@ -65,24 +79,6 @@ const Sidebar = ({
               {item.label}
             </Button>
           ))}
-        </div>
-
-        <Separator className="my-4" />
-
-        <div className="space-y-1">
-          <h3 className="text-xs font-medium px-3 py-2 text-gray-500">Filters</h3>
-          <Button variant="ghost" className="w-full justify-start gap-2 text-sm h-9">
-            <span className="h-2 w-2 rounded-full bg-green-500"></span>
-            Active
-          </Button>
-          <Button variant="ghost" className="w-full justify-start gap-2 text-sm h-9">
-            <span className="h-2 w-2 rounded-full bg-red-500"></span>
-            High Priority
-          </Button>
-          <Button variant="ghost" className="w-full justify-start gap-2 text-sm h-9">
-            <span className="h-2 w-2 rounded-full bg-yellow-500"></span>
-            In Progress
-          </Button>
         </div>
       </ScrollArea>
 

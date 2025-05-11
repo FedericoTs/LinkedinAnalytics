@@ -26,12 +26,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Listen for changes on auth state (signed in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-        setLoading(false);
-      }
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
     return () => {
       subscription.unsubscribe();
@@ -61,11 +61,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInWithLinkedIn = async () => {
     try {
+      // Log the current origin to help with debugging
+      console.log("Current origin for OAuth redirect:", window.location.origin);
+
+      // Always specify the redirectTo to ensure it works in all environments
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'linkedin_oidc',
-        options: { redirectTo: `${window.location.origin}/dashboard` },
+        provider: "linkedin_oidc",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
-      if (error) throw error;
+
+      if (error) {
+        console.error("LinkedIn OAuth initialization error:", error);
+        throw error;
+      }
     } catch (error) {
       console.error("LinkedIn OAuth error:", error);
       throw error;
