@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { supabase } from "../../../supabase/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -238,7 +239,7 @@ const ContentCreationHub = () => {
     writingMode,
   ]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!topic.trim()) {
       toast({
         title: "Topic Required",
@@ -249,39 +250,55 @@ const ContentCreationHub = () => {
     }
 
     setIsGenerating(true);
-    // Simulate AI generation
-    setTimeout(() => {
-      // Generate content based on all the parameters
-      let generatedText = "";
 
-      // Include key points if available
-      const keyPointsText =
-        keyPoints.length > 0
-          ? keyPoints.map((point) => `• ${point}`).join("\n")
-          : "";
+    try {
+      // Call the OpenAI API via our Edge Function
+      const { data, error } = await supabase.functions.invoke(
+        "supabase-functions-create-completion",
+        {
+          body: {
+            topic,
+            contentType,
+            contentPurpose,
+            targetAudience,
+            keyPoints,
+            aiSettings,
+            model: "gpt-3.5-turbo-instruct",
+            max_tokens: contentType === "article" ? 1000 : 500,
+            temperature: aiSettings.creativity / 100,
+          },
+        },
+      );
 
-      // Include target audience info if available
-      const audienceText = targetAudience.customDescription
-        ? `Tailored for ${targetAudience.customDescription}`
-        : "";
+      if (error) {
+        throw new Error(error.message);
+      }
 
-      // Generate different content based on type and purpose
-      const content = {
-        post: `Just published our quarterly industry report on ${topic}. ${audienceText ? audienceText + ". " : ""}The data shows AI adoption has increased 43% YoY across mid-market companies. Key takeaway: companies integrating AI into customer service see 31% higher retention rates.${keyPointsText ? "\n\n" + keyPointsText : ""}${aiSettings.includeHashtags ? "\n\n#AITrends #IndustryInsights #TechInnovation" : ""}${aiSettings.includeCTA ? "\n\nCheck out the full report at the link in my profile!" : ""}`,
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
-        article: `# The Future of ${topic}\n\n${audienceText ? audienceText + ". " : ""}In today's rapidly evolving business landscape, artificial intelligence is no longer just a competitive advantage—it's becoming a necessity for operational efficiency...\n\n## Key Findings from Our Research\n\n${keyPointsText || `1. Companies implementing AI solutions see an average 27% reduction in operational costs\n2. Customer satisfaction scores improve by 31% when AI is used in service interactions\n3. Decision-making speed increases by 41% with AI-powered analytics`}\n\n${description ? "## Overview\n\n" + description : ""}${aiSettings.includeCTA ? "\n\n## Next Steps\n\nReady to transform your business with AI? Contact us today for a personalized consultation." : ""}`,
-      };
-
-      setGeneratedContent(content[contentType]);
-      setEditorContent(content[contentType]);
-      setPlainTextContent(content[contentType]);
-      setIsGenerating(false);
+      // Set the generated content
+      setGeneratedContent(data.content);
+      setEditorContent(data.content);
+      setPlainTextContent(data.content);
 
       toast({
         title: "Content Generated",
-        description: "Your content has been generated successfully",
+        description:
+          "Your content has been generated successfully using OpenAI",
       });
-    }, 2000);
+    } catch (error) {
+      console.error("Error generating content:", error);
+      toast({
+        title: "Generation Failed",
+        description:
+          error instanceof Error ? error.message : "Failed to generate content",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleAddKeyPoint = () => {
