@@ -7,11 +7,12 @@
 3. [State Management](#state-management)
 4. [Styling Guidelines](#styling-guidelines)
 5. [API Integration](#api-integration)
-6. [Function Organization](#function-organization)
-7. [Tempo Lab Features](#tempo-lab-features)
-8. [Best Practices](#best-practices)
-9. [Common Pitfalls to Avoid](#common-pitfalls-to-avoid)
-10. [AI-Assisted Development Tips](#ai-assisted-development-tips)
+6. [Database Structure](#database-structure)
+7. [Function Organization](#function-organization)
+8. [Tempo Lab Features](#tempo-lab-features)
+9. [Best Practices](#best-practices)
+10. [Common Pitfalls to Avoid](#common-pitfalls-to-avoid)
+11. [AI-Assisted Development Tips](#ai-assisted-development-tips)
 
 ## Project Structure
 
@@ -146,6 +147,265 @@ const { data, error } = await supabase.functions.invoke(
 
 - LinkedIn authentication is handled through Supabase Auth
 - Use `signInWithLinkedIn()` from the `useAuth` hook
+
+### Neo4j
+
+- **Connection**: Use the Neo4j driver from `src/lib/neo4j.ts`
+- **Queries**: Use the `runQuery` function to execute Cypher queries
+- **Visualization**: Use D3.js for network visualization
+
+```tsx
+// Example: Initializing Neo4j driver
+import { initNeo4j, runQuery } from '@/lib/neo4j';
+
+// Initialize the driver
+initNeo4j();
+
+// Execute a Cypher query
+const result = await runQuery(
+  'MATCH (n:User) RETURN n LIMIT 10',
+  {} // Parameters
+);
+```
+
+#### Environment Variables
+
+The Neo4j integration requires the following environment variables:
+
+- `VITE_NEO4J_URI`: The URI of your Neo4j Aura instance
+- `VITE_NEO4J_USER`: The username for your Neo4j Aura instance
+- `VITE_NEO4J_PASSWORD`: The password for your Neo4j Aura instance
+
+## Database Structure
+
+The LinkedIn Analytics Platform uses Supabase as its primary database and Neo4j for network visualization. Here's the recommended database structure:
+
+### Supabase Tables
+
+#### 1. `users` (extends Supabase Auth)
+
+```sql
+create table public.users (
+  id uuid references auth.users not null primary key,
+  email text not null,
+  full_name text,
+  avatar_url text,
+  linkedin_id text,
+  created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null,
+  subscription_tier text default 'free' not null,
+  subscription_status text default 'active' not null,
+  subscription_end_date timestamp with time zone
+);
+
+-- Enable RLS
+alter table public.users enable row level security;
+
+-- Create policies
+create policy "Users can view their own data"
+  on users for select
+  using (auth.uid() = id);
+
+create policy "Users can update their own data"
+  on users for update
+  using (auth.uid() = id);
+```
+
+#### 2. `content_drafts`
+
+```sql
+create table public.content_drafts (
+  id uuid default uuid_generate_v4() not null primary key,
+  user_id uuid references public.users not null,
+  title text,
+  content text not null,
+  content_type text not null,
+  template text,
+  topic text,
+  created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null,
+  metadata jsonb default '{}'::jsonb
+);
+
+-- Enable RLS
+alter table public.content_drafts enable row level security;
+
+-- Create policies
+create policy "Users can CRUD their own drafts"
+  on content_drafts for all
+  using (auth.uid() = user_id);
+```
+
+#### 3. `published_content`
+
+```sql
+create table public.published_content (
+  id uuid default uuid_generate_v4() not null primary key,
+  user_id uuid references public.users not null,
+  draft_id uuid references public.content_drafts,
+  title text,
+  content text not null,
+  content_type text not null,
+  published_at timestamp with time zone default now() not null,
+  linkedin_post_id text,
+  linkedin_share_url text,
+  metadata jsonb default '{}'::jsonb
+);
+
+-- Enable RLS
+alter table public.published_content enable row level security;
+
+-- Create policies
+create policy "Users can view and create their own published content"
+  on published_content for all
+  using (auth.uid() = user_id);
+```
+
+#### 4. `content_templates`
+
+```sql
+create table public.content_templates (
+  id uuid default uuid_generate_v4() not null primary key,
+  user_id uuid references public.users,
+  name text not null,
+  content text not null,
+  content_type text not null,
+  is_system boolean default false not null,
+  created_at timestamp with time zone default now() not null
+);
+
+-- Enable RLS
+alter table public.content_templates enable row level security;
+
+-- Create policies
+create policy "Users can view all templates"
+  on content_templates for select
+  using (true);
+
+create policy "Users can CRUD their own templates"
+  on content_templates for all
+  using (auth.uid() = user_id);
+```
+
+#### 5. `content_analytics`
+
+```sql
+create table public.content_analytics (
+  id uuid default uuid_generate_v4() not null primary key,
+  content_id uuid references public.published_content not null,
+  user_id uuid references public.users not null,
+  views integer default 0,
+  likes integer default 0,
+  comments integer default 0,
+  shares integer default 0,
+  clicks integer default 0,
+  recorded_at timestamp with time zone default now() not null
+);
+
+-- Enable RLS
+alter table public.content_analytics enable row level security;
+
+-- Create policies
+create policy "Users can view their own analytics"
+  on content_analytics for select
+  using (auth.uid() = user_id);
+```
+
+#### 6. `subscriptions`
+
+```sql
+create table public.subscriptions (
+  id uuid default uuid_generate_v4() not null primary key,
+  user_id uuid references public.users not null,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  plan_id text not null,
+  status text not null,
+  current_period_start timestamp with time zone not null,
+  current_period_end timestamp with time zone not null,
+  created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null
+);
+
+-- Enable RLS
+alter table public.subscriptions enable row level security;
+
+-- Create policies
+create policy "Users can view their own subscriptions"
+  on subscriptions for select
+  using (auth.uid() = user_id);
+```
+
+#### 7. `scheduled_posts`
+
+```sql
+create table public.scheduled_posts (
+  id uuid default uuid_generate_v4() not null primary key,
+  user_id uuid references public.users not null,
+  content_id uuid references public.content_drafts not null,
+  scheduled_date timestamp with time zone not null,
+  status text default 'pending' not null,
+  created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null
+);
+
+-- Enable RLS
+alter table public.scheduled_posts enable row level security;
+
+-- Create policies
+create policy "Users can CRUD their own scheduled posts"
+  on scheduled_posts for all
+  using (auth.uid() = user_id);
+```
+
+### Neo4j Graph Structure
+
+The Neo4j database is used for network visualization and analysis. Here's the recommended graph structure:
+
+#### Nodes
+
+1. **User**: Represents a LinkedIn user
+   - Properties: `id`, `name`, `title`, `company`, `industry`
+
+2. **Company**: Represents a company on LinkedIn
+   - Properties: `id`, `name`, `industry`, `size`
+
+3. **Post**: Represents a LinkedIn post
+   - Properties: `id`, `content`, `published_at`, `type`
+
+#### Relationships
+
+1. **CONNECTED_TO**: Connects two User nodes (LinkedIn connection)
+   - Properties: `connection_date`, `strength` (interaction frequency)
+
+2. **WORKS_AT**: Connects a User to a Company
+   - Properties: `role`, `start_date`, `end_date`
+
+3. **PUBLISHED**: Connects a User to a Post
+   - Properties: `published_at`
+
+4. **ENGAGED_WITH**: Connects a User to a Post (like, comment, share)
+   - Properties: `engagement_type`, `engagement_date`
+
+#### Example Cypher Queries
+
+```cypher
+// Create a user node
+CREATE (u:User {id: $userId, name: $name, title: $title})
+
+// Create a connection between users
+MATCH (u1:User {id: $user1Id}), (u2:User {id: $user2Id})
+CREATE (u1)-[:CONNECTED_TO {connection_date: datetime(), strength: 1}]->(u2)
+
+// Find all first-degree connections
+MATCH (u:User {id: $userId})-[:CONNECTED_TO]-(connection:User)
+RETURN connection
+
+// Find all second-degree connections
+MATCH (u:User {id: $userId})-[:CONNECTED_TO]-(firstDegree:User)-[:CONNECTED_TO]-(secondDegree:User)
+WHERE NOT (u)-[:CONNECTED_TO]-(secondDegree) AND u <> secondDegree
+RETURN DISTINCT secondDegree
+```
 
 ## Function Organization
 
@@ -285,6 +545,14 @@ export default function ComponentNameStoryboard() {
 - Maintain consistent card-based layout for dashboard components
 - Use appropriate visualizations for different types of data
 - Ensure all dashboard components are responsive
+
+### Network Visualization
+
+- Use the Neo4j driver from `src/lib/neo4j.ts` to fetch network data
+- Use D3.js force simulation for interactive network graphs
+- Implement filtering options to focus on specific connection types
+- Handle loading and error states appropriately
+- Provide meaningful tooltips and interaction for network nodes
 
 ### Edge Functions
 
